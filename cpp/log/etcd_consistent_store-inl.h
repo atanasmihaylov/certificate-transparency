@@ -690,11 +690,10 @@ void EtcdConsistentStore<Logged>::UpdateLocalServingSTH(
 template <class Logged>
 void EtcdConsistentStore<Logged>::OnEtcdServingSTHUpdated(
     const Update<ct::SignedTreeHead>& update) {
-  VLOG(1) << "Got ServingSTH version " << update.handle_.Handle() << ": "
-          << update.handle_.Entry().DebugString();
   std::unique_lock<std::mutex> lock(mutex_);
-
   if (update.exists_) {
+    VLOG(1) << "Got ServingSTH version " << update.handle_.Handle() << ": "
+            << update.handle_.Entry().DebugString();
     UpdateLocalServingSTH(lock, update.handle_);
   } else {
     LOG(WARNING) << "ServingSTH non-existent/deleted.";
