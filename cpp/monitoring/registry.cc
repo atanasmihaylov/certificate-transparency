@@ -3,6 +3,10 @@
 
 namespace cert_trans {
 
+using std::lock_guard;
+using std::mutex;
+using std::set;
+
 // static
 Registry* Registry::Instance() {
   static Registry* registry(new Registry);
@@ -11,19 +15,26 @@ Registry* Registry::Instance() {
 
 
 void Registry::AddMetric(const Metric* metric) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  lock_guard<mutex> lock(mutex_);
   metrics_.insert(metric);
 }
 
 
 void Registry::ResetForTestingOnly() {
-  std::lock_guard<std::mutex> lock(mutex_);
+  lock_guard<mutex> lock(mutex_);
   metrics_.clear();
 }
 
 
+set<const Metric*> Registry::GetMetrics() const {
+  lock_guard<mutex> lock(mutex_);
+  set<const Metric*> ret(metrics_);
+  return ret;
+}
+
+
 void Registry::Export(std::ostream* os) const {
-  std::lock_guard<std::mutex> lock(mutex_);
+  lock_guard<mutex> lock(mutex_);
   for (const auto* m : metrics_) {
     m->Export(os);
   }
@@ -31,7 +42,7 @@ void Registry::Export(std::ostream* os) const {
 
 
 void Registry::ExportHTML(std::ostream* os) const {
-  std::lock_guard<std::mutex> lock(mutex_);
+  lock_guard<mutex> lock(mutex_);
   *os << "<html>\n"
       << "<body>\n"
       << "  <h1>Metrics</h1>\n";

@@ -8,16 +8,19 @@
 #include "monitoring/prometheus/counter.h"
 #include "monitoring/prometheus/gauge.h"
 
+#include "monitoring/gcm/counter.h"
+#include "monitoring/gcm/exporter.h"
+#include "monitoring/gcm/gauge.h"
 
 namespace cert_trans {
-
 
 template <class... LabelTypes>
 Counter<LabelTypes...>* Counter<LabelTypes...>::New(
     const std::string& name,
     const typename NameType<LabelTypes>::name&... label_names,
     const std::string& help) {
-  return PrometheusCounter<LabelTypes...>::New(name, label_names..., help);
+  // return PrometheusCounter<LabelTypes...>::New(name, label_names..., help);
+  return GCMCounter<LabelTypes...>::New(name, label_names..., help);
 }
 
 
@@ -27,7 +30,8 @@ Gauge<LabelTypes...>* Gauge<LabelTypes...>::New(
     const std::string& name,
     const typename NameType<LabelTypes>::name&... label_names,
     const std::string& help) {
-  return PrometheusGauge<LabelTypes...>::New(name, label_names..., help);
+  // return PrometheusGauge<LabelTypes...>::New(name, label_names..., help);
+  return GCMGauge<LabelTypes...>::New(name, label_names..., help);
 }
 
 

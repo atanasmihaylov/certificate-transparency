@@ -66,6 +66,9 @@ TESTS = \
 	cpp/merkletree/serial_hasher_test \
 	cpp/merkletree/tree_hasher_test \
 	cpp/monitor/database_test \
+	cpp/monitoring/gcm/counter_test \
+	cpp/monitoring/gcm/exporter_test \
+	cpp/monitoring/gcm/gauge_test \
 	cpp/monitoring/prometheus/counter_test \
 	cpp/monitoring/prometheus/gauge_test \
 	cpp/monitoring/registry_test \
@@ -133,6 +136,7 @@ cpp_libcore_a_SOURCES = \
 	cpp/merkletree/merkle_verifier.cc \
 	cpp/merkletree/serial_hasher.cc \
 	cpp/merkletree/tree_hasher.cc \
+	cpp/monitoring/gcm/exporter.cc \
 	cpp/monitoring/prometheus/metrics.pb.cc \
 	cpp/monitoring/prometheus/metrics.pb.h \
 	cpp/monitoring/registry.cc \
@@ -479,6 +483,38 @@ cpp_monitor_database_test_SOURCES = \
 	cpp/monitor/sqlite_db.cc \
 	cpp/proto/serializer.cc \
 	cpp/util/util.cc
+
+cpp_monitoring_gcm_counter_test_LDADD = \
+	cpp/libcore.a \
+	cpp/libtest.a \
+	$(libevent_LIBS) \
+	-lprotobuf
+cpp_monitoring_gcm_counter_test_SOURCES = \
+	cpp/monitoring/gcm/counter_test.cc \
+	cpp/util/protobuf_util.cc
+
+cpp_monitoring_gcm_exporter_test_LDADD = \
+	cpp/libcore.a \
+	cpp/libtest.a \
+	$(json_c_LIBS) \
+	$(libevent_LIBS) \
+	-lprotobuf
+cpp_monitoring_gcm_exporter_test_SOURCES = \
+	cpp/monitoring/gcm/exporter.cc \
+	cpp/monitoring/gcm/exporter_test.cc \
+	cpp/util/json_wrapper.cc \
+	cpp/util/libevent_wrapper.cc \
+	cpp/util/protobuf_util.cc \
+	cpp/util/thread_pool.cc
+
+cpp_monitoring_gcm_gauge_test_LDADD = \
+	cpp/libcore.a \
+	cpp/libtest.a \
+	$(libevent_LIBS) \
+	-lprotobuf
+cpp_monitoring_gcm_gauge_test_SOURCES = \
+	cpp/monitoring/gcm/gauge_test.cc \
+	cpp/util/protobuf_util.cc
 
 cpp_monitoring_prometheus_counter_test_LDADD = \
 	cpp/libcore.a \
