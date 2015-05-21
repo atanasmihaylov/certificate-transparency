@@ -49,6 +49,8 @@ class Base : public util::Executor {
   evdns_base* GetDns();
   evhtp_connection_t* HttpConnectionNew(const std::string& host,
                                         unsigned short port);
+  evhtp_connection_t* HttpsConnectionNew(const std::string& host,
+                                         unsigned short port);
 
  private:
   static void RunClosures(evutil_socket_t sock, short flag, void* userdata);
@@ -65,6 +67,8 @@ class Base : public util::Executor {
   // first.
   const std::unique_ptr<event, void (*)(event*)> wake_closures_;
   std::vector<std::function<void()>> closures_;
+
+  std::unique_ptr<evhtp_ssl_ctx_t, void (*)(evhtp_ssl_ctx_t*)> ssl_ctx_;
 
   DISALLOW_COPY_AND_ASSIGN(Base);
 };

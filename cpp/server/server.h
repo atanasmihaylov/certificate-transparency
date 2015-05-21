@@ -198,9 +198,15 @@ void Server<Logged>::StaticInit() {
   CRYPTO_set_locking_callback(locking_function);
 
   OpenSSL_add_all_algorithms();
+  ERR_load_BIO_strings();
   ERR_load_crypto_strings();
+  SSL_load_error_strings();
+  SSL_library_init();
+
   cert_trans::LoadCtExtensions();
   evthread_use_pthreads();
+  evhtp_ssl_use_threads();
+
 
   CHECK_NE(SIG_ERR, std::signal(SIGALRM, &WatchdogTimeout));
 }

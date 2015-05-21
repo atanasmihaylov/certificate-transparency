@@ -101,7 +101,8 @@ State::State(ConnectionPool* pool, const UrlFetcher::Request& request,
       request_(NormaliseRequest(request)),
       response_(CHECK_NOTNULL(response)),
       task_(CHECK_NOTNULL(task)) {
-  if (request_.url.Protocol() != "http") {
+  if (request_.url.Protocol() != "http" &&
+      request_.url.Protocol() != "https") {
     VLOG(1) << "unsupported protocol: " << request_.url.Protocol();
     task_->Return(Status(util::error::INVALID_ARGUMENT,
                          "UrlFetcher: unsupported protocol: " +

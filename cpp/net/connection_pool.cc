@@ -40,15 +40,18 @@ ConnectionPool::ConnectionPool(libevent::Base* base)
 
 unique_ptr<ConnectionPool::Connection> ConnectionPool::Get(const URL& url) {
   // TODO(pphaneuf): Add support for other protocols.
-  CHECK_EQ(url.Protocol(), "http");
-  HostPortPair key(url.Host(), url.Port() != 0 ? url.Port() : 80);
+  CHECK(url.Protocol() == "http" || url.Protocol() == "https");
+  const uint16_t default_port(url.Protocol() == "https" ? 443 : 80);
+  HostPortPair key(url.Host(), url.Port() != 0 ? url.Port() : default_port);
   lock_guard<mutex> lock(lock_);
 
   auto it(conns_.find(key));
   if (it == conns_.end() || it->second.empty()) {
     VLOG(1) << "new evhtp_connection for " << key.first << ":" << key.second;
     return unique_ptr<ConnectionPool::Connection>(
-        new Connection(base_->HttpConnectionNew(key.first, key.second),
+        new Connection(url.Protocol() == "https"
+                           ? base_->HttpsConnectionNew(key.first, key.second)
+                           : base_->HttpConnectionNew(key.first, key.second),
                        move(key)));
   }
 

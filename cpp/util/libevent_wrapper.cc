@@ -1,11 +1,14 @@
 #include "util/libevent_wrapper.h"
 
+#include <arpa/inet.h>
 #include <climits>
 #include <evhtp.h>
 #include <event2/thread.h>
 #include <glog/logging.h>
 #include <math.h>
 #include <signal.h>
+
+#include "util/openssl_util.h"
 
 using std::bind;
 using std::chrono::duration;
@@ -22,6 +25,7 @@ using std::recursive_mutex;
 using std::shared_ptr;
 using std::string;
 using std::vector;
+using util::DumpOpenSSLErrorStack;
 using util::TaskHold;
 
 namespace {
@@ -66,6 +70,11 @@ namespace cert_trans {
 namespace libevent {
 
 
+DEFINE_string(trusted_root_certs, "/etc/ssl/certs/ca-certificates.crt",
+              "Location of trusted CA root certs for outgoing SSL "
+              "connections.");
+
+
 struct HttpServer::Handler {
   Handler(const string& _path, const HandlerCallback& _cb)
       : path(_path), cb(_cb) {
@@ -80,8 +89,26 @@ Base::Base()
     : base_(CHECK_NOTNULL(event_base_new()), event_base_free),
       dns_(nullptr, FreeEvDns),
       wake_closures_(event_new(base_.get(), -1, 0, &Base::RunClosures, this),
-                     &event_free) {
+                     &event_free),
+      ssl_ctx_(CHECK_NOTNULL(SSL_CTX_new(SSLv23_method())), SSL_CTX_free) {
+  // TODO(alcutter): Verify hostname
+  LOG(WARNING) << "WARNING - using insecure SSL, not verifying peer hostname.";
+  // Try to load trusted root certificates.
+  // TODO(alcutter): This is Debian specific, we'll need other sections
+  // for OSX etc.
+  if (SSL_CTX_load_verify_locations(ssl_ctx_.get(),
+                                    FLAGS_trusted_root_certs.c_str(),
+                                    nullptr) != 1) {
+    DumpOpenSSLErrorStack();
+    LOG(FATAL) << "Couldn't load trusted root certificates.";
+  }
+  SSL_CTX_set_verify(ssl_ctx_.get(), SSL_VERIFY_PEER, nullptr);
+
   evthread_make_base_notifiable(base_.get());
+
+  // So much stuff breaks if there's not a Dns server around to keep the
+  // event loop doing stuff that we may as well just have one from the get go.
+  GetDns();
 }
 
 
@@ -203,6 +230,45 @@ evhtp_connection_t* Base::HttpConnectionNew(const string& host,
                                             unsigned short port) {
   return CHECK_NOTNULL(
       evhtp_connection_new_dns(base_.get(), GetDns(), host.c_str(), port));
+}
+
+
+evhtp_connection_t* Base::HttpsConnectionNew(const string& host,
+                                             unsigned short port) {
+  // TODO(alcutter): remove this all when this PR is merged:
+  //   https://github.com/ellzey/libevhtp/pull/163
+  struct addrinfo* info;
+  const int resolved(getaddrinfo(host.c_str(), AF_UNSPEC, nullptr, &info));
+  if (resolved != 0) {
+    LOG(WARNING) << "Failed to resolve HTTPS hostname " << host << ": "
+                 << gai_strerror(resolved);
+    return nullptr;
+  }
+
+  char addr_str[256];
+  struct addrinfo* res(info);
+  void* addr(nullptr);
+  while (res) {
+    switch (res->ai_family) {
+      case AF_INET:
+        addr = &reinterpret_cast<struct sockaddr_in*>(res->ai_addr)->sin_addr;
+        break;
+      case AF_INET6:
+        addr =
+            &reinterpret_cast<struct sockaddr_in6*>(res->ai_addr)->sin6_addr;
+        break;
+      default:
+        continue;
+    }
+    inet_ntop(res->ai_family, addr, addr_str, 256);
+    res = res->ai_next;
+  }
+
+  LOG(INFO) << "Got addr: " << string(addr_str) << ":" << port;
+  evhtp_connection_t* ret(CHECK_NOTNULL(
+      evhtp_connection_ssl_new(base_.get(), addr_str, port, ssl_ctx_.get())));
+  SSL_set_tlsext_host_name(ret->ssl, host.c_str());
+  return ret;
 }
 
 

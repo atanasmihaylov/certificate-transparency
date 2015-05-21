@@ -219,6 +219,7 @@ cpp_tools_ct_clustertool_SOURCES = \
 	cpp/tools/clustertool_main.cc \
 	cpp/util/json_wrapper.cc \
 	cpp/util/libevent_wrapper.cc \
+	cpp/util/openssl_util.cc \
 	cpp/util/periodic_closure.cc \
 	cpp/util/protobuf_util.cc \
 	cpp/util/read_key.cc \
@@ -277,7 +278,8 @@ cpp_tools_etcd_watch_LDADD = \
 cpp_tools_etcd_watch_SOURCES = \
 	cpp/tools/etcd_watch.cc \
 	cpp/util/json_wrapper.cc \
-	cpp/util/libevent_wrapper.cc
+	cpp/util/libevent_wrapper.cc \
+	cpp/util/openssl_util.cc
 
 cpp_util_bench_etcd_LDADD = \
 	cpp/libcore.a \
@@ -287,7 +289,8 @@ cpp_util_bench_etcd_LDADD = \
 cpp_util_bench_etcd_SOURCES = \
 	cpp/util/bench_etcd.cc \
 	cpp/util/json_wrapper.cc \
-	cpp/util/libevent_wrapper.cc
+	cpp/util/libevent_wrapper.cc \
+	cpp/util/openssl_util.cc
 
 cpp_util_etcd_masterelection_LDADD = \
 	cpp/libcore.a \
@@ -298,6 +301,7 @@ cpp_util_etcd_masterelection_SOURCES = \
 	cpp/util/etcd_masterelection.cc \
 	cpp/util/json_wrapper.cc \
 	cpp/util/libevent_wrapper.cc \
+	cpp/util/openssl_util.cc \
 	cpp/util/periodic_closure.cc \
 	cpp/util/protobuf_util.cc
 
