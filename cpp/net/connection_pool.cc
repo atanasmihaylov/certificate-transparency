@@ -9,6 +9,7 @@ using std::move;
 using std::mutex;
 using std::pair;
 using std::string;
+using std::unique_ptr;
 
 DEFINE_int32(url_fetcher_max_conn_per_host_port, 4,
              "maximum number of URL fetcher connections per host:port");
@@ -16,45 +17,57 @@ DEFINE_int32(url_fetcher_max_conn_per_host_port, 4,
 namespace cert_trans {
 namespace internal {
 
+ConnectionPool::Connection::Connection(evhtp_connection_t* conn,
+                                       HostPortPair&& other_end)
+    : conn_(CHECK_NOTNULL(conn)), other_end_(other_end) {
+}
+
+
+evhtp_connection_t* ConnectionPool::Connection::connection() const {
+  return conn_.get();
+}
+
+
+const HostPortPair& ConnectionPool::Connection::other_end() const {
+  return other_end_;
+}
+
+
 ConnectionPool::ConnectionPool(libevent::Base* base)
     : base_(CHECK_NOTNULL(base)), cleanup_scheduled_(false) {
 }
 
 
-evhttp_connection_unique_ptr ConnectionPool::Get(const URL& url) {
+unique_ptr<ConnectionPool::Connection> ConnectionPool::Get(const URL& url) {
   // TODO(pphaneuf): Add support for other protocols.
   CHECK_EQ(url.Protocol(), "http");
-  const HostPortPair key(url.Host(), url.Port() != 0 ? url.Port() : 80);
+  HostPortPair key(url.Host(), url.Port() != 0 ? url.Port() : 80);
   lock_guard<mutex> lock(lock_);
 
   auto it(conns_.find(key));
   if (it == conns_.end() || it->second.empty()) {
-    VLOG(1) << "new evhttp_connection for " << key.first << ":" << key.second;
-    return evhttp_connection_unique_ptr(
-        base_->HttpConnectionNew(key.first, key.second));
+    VLOG(1) << "new evhtp_connection for " << key.first << ":" << key.second;
+    return unique_ptr<ConnectionPool::Connection>(
+        new Connection(base_->HttpConnectionNew(key.first, key.second),
+                       move(key)));
   }
 
-  VLOG(1) << "cached evhttp_connection for " << key.first << ":" << key.second;
-  evhttp_connection_unique_ptr retval(move(it->second.back()));
+  VLOG(1) << "cached evhtp_connection for " << key.first << ":" << key.second;
+  unique_ptr<ConnectionPool::Connection> retval(move(it->second.back()));
   it->second.pop_back();
 
   return retval;
 }
 
 
-void ConnectionPool::Put(evhttp_connection_unique_ptr&& conn) {
+void ConnectionPool::Put(unique_ptr<ConnectionPool::Connection>&& conn) {
   if (!conn) {
-    VLOG(1) << "returned null evhttp_connection";
+    VLOG(1) << "returned null Connection";
     return;
   }
 
-  char* host;
-  uint16_t port;
-  evhttp_connection_get_peer(conn.get(), &host, &port);
-  const HostPortPair key(host, port);
-
-  VLOG(1) << "returned evhttp_connection for " << key.first << ":"
-          << key.second;
+  const HostPortPair& key(conn->other_end());
+  VLOG(1) << "returned Connection for " << key.first << ":" << key.second;
   lock_guard<mutex> lock(lock_);
   auto& entry(conns_[key]);
 
@@ -73,7 +86,7 @@ void ConnectionPool::Cleanup() {
   lock_guard<mutex> lock(lock_);
   cleanup_scheduled_ = false;
 
-  // std::map<HostPortPair, std::deque<evhttp_connection_unique_ptr>> conns_;
+  // std::map<HostPortPair, std::deque<unique_ptr<Connection>>> conns_;
   for (auto& entry : conns_) {
     while (entry.second.size() >
            static_cast<uint>(FLAGS_url_fetcher_max_conn_per_host_port)) {
