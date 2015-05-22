@@ -36,10 +36,12 @@ class ConnectionPool {
 
     const HostPortPair& other_end() const;
 
+    void ReleaseConnection();
+
    private:
     Connection(evhtp_connection_t* conn, HostPortPair&& other_end);
 
-    const std::unique_ptr<evhtp_connection_t, evhtp_connection_deleter> conn_;
+    std::unique_ptr<evhtp_connection_t, evhtp_connection_deleter> conn_;
     const HostPortPair other_end_;
 
     friend class ConnectionPool;

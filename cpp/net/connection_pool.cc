@@ -28,10 +28,31 @@ const HostPortPair& ConnectionPool::Connection::other_end() const {
 }
 
 
+void ConnectionPool::Connection::ReleaseConnection() {
+  VLOG(1) << "Releasing connection " << conn_.get();
+  conn_.release();
+}
+
+
 ConnectionPool::ConnectionPool(libevent::Base* base)
     : base_(CHECK_NOTNULL(base)), cleanup_scheduled_(false) {
 }
 
+
+namespace {
+
+
+evhtp_res ConnectionClosedHook(evhtp_connection_t* conn, void* arg) {
+  CHECK_NOTNULL(conn);
+  CHECK_NOTNULL(arg);
+  ConnectionPool::Connection* const c(
+      reinterpret_cast<ConnectionPool::Connection*>(arg));
+  c->ReleaseConnection();
+  return EVHTP_RES_OK;
+}
+
+
+}  // namespace
 
 unique_ptr<ConnectionPool::Connection> ConnectionPool::Get(const URL& url) {
   // TODO(pphaneuf): Add support for other protocols.
@@ -40,16 +61,34 @@ unique_ptr<ConnectionPool::Connection> ConnectionPool::Get(const URL& url) {
   lock_guard<mutex> lock(lock_);
 
   auto it(conns_.find(key));
+
+  if (it != conns_.end()) {
+    // Do a sweep and remove any dead connections
+    for (auto deque_it(it->second.begin()); deque_it != it->second.end();
+         ++deque_it) {
+      if (!(*deque_it)->connection()) {
+        VLOG(1) << "Removing dead connection " << (*deque_it)->connection();
+        it->second.erase(deque_it);
+      }
+    }
+  }
+
   if (it == conns_.end() || it->second.empty()) {
     VLOG(1) << "new evhtp_connection for " << key.first << ":" << key.second;
-    return unique_ptr<ConnectionPool::Connection>(
+    unique_ptr<ConnectionPool::Connection> conn(
         new Connection(base_->HttpConnectionNew(key.first, key.second),
                        move(key)));
+    evhtp_set_hook(&conn->connection()->hooks, evhtp_hook_on_connection_fini,
+                   reinterpret_cast<evhtp_hook>(ConnectionClosedHook),
+                   reinterpret_cast<void*>(conn.get()));
+    return conn;
   }
 
   VLOG(1) << "cached evhtp_connection for " << key.first << ":" << key.second;
   unique_ptr<ConnectionPool::Connection> retval(move(it->second.back()));
   it->second.pop_back();
+
+  CHECK_NOTNULL(retval->connection());
 
   return retval;
 }
@@ -58,6 +97,11 @@ unique_ptr<ConnectionPool::Connection> ConnectionPool::Get(const URL& url) {
 void ConnectionPool::Put(unique_ptr<ConnectionPool::Connection>&& conn) {
   if (!conn) {
     VLOG(1) << "returned null Connection";
+    return;
+  }
+
+  if (!conn->connection()) {
+    VLOG(1) << "returned dead Connection";
     return;
   }
 
@@ -88,7 +132,6 @@ void ConnectionPool::Cleanup() {
       entry.second.pop_front();
     }
   }
-
 }
 
 
