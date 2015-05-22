@@ -23,8 +23,6 @@ struct evhtp_connection_deleter {
 };
 
 
-typedef std::unique_ptr<evhtp_connection_t, evhtp_connection_deleter>
-    evhtp_connection_unique_ptr;
 typedef std::pair<std::string, uint16_t> HostPortPair;
 
 
@@ -32,13 +30,16 @@ class ConnectionPool {
  public:
   class Connection {
    public:
-    evhtp_connection_t* connection() const;
+    evhtp_connection_t* connection() const {
+      return conn_.get();
+    }
+
     const HostPortPair& other_end() const;
 
    private:
     Connection(evhtp_connection_t* conn, HostPortPair&& other_end);
 
-    const evhtp_connection_unique_ptr conn_;
+    const std::unique_ptr<evhtp_connection_t, evhtp_connection_deleter> conn_;
     const HostPortPair other_end_;
 
     friend class ConnectionPool;

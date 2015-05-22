@@ -3,7 +3,6 @@
 
 #include <atomic>
 #include <chrono>
-
 #include <event2/dns.h>
 #include <event2/event.h>
 // TODO(alcutter): Use evhtp for the HttpServer too.

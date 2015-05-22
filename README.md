@@ -56,7 +56,7 @@ work.
  - [libevent](http://libevent.org/) (tested with 2.0.21-stable)
  - [libevhtp](https://github.com/ellzey/libevhtp) (tested with 1.2.10)
  If building libevhtp from source, you may need to disable the regex support
- with the following cmake flag: -DEVHTP_DISABLE_REGEX:STRING=ON
+ with the following cmake flag: `-DEVHTP_DISABLE_REGEX:STRING=ON`
 
 You can specify a non-installed locally built library using the
 `LIBEVENTDIR` environment variable to point to the local build. Note

@@ -63,7 +63,7 @@ AS_IF([test -n "$missing_gmock"],
 # Checks for libraries.
 AC_SEARCH_LIBS([__b64_ntop], [resolv])
 AC_SEARCH_LIBS([pthread_create], [pthread])
-AC_SEARCH_LIBS([evhtp_ssl_init], [evhtp])
+AC_SEARCH_LIBS([evhtp_make_request], [evhtp])
 
 AC_MSG_CHECKING([checking for gflags library])
 LIBS="-lgflags $LIBS"

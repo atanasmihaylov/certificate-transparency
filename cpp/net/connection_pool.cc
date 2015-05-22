@@ -23,11 +23,6 @@ ConnectionPool::Connection::Connection(evhtp_connection_t* conn,
 }
 
 
-evhtp_connection_t* ConnectionPool::Connection::connection() const {
-  return conn_.get();
-}
-
-
 const HostPortPair& ConnectionPool::Connection::other_end() const {
   return other_end_;
 }
